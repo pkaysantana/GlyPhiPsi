@@ -1,4 +1,5 @@
 import pytest
+from matplotlib import pyplot as plt
 
 from glyphipsi.plotting import _build_phi_psi_figure
 from glyphipsi.residues import GlyPhiPsiRow
@@ -31,7 +32,7 @@ def test_plot_uses_required_axes_labels_limits_and_square_figure():
         assert axis.get_aspect() == pytest.approx(1.0)
         assert width == pytest.approx(height)
     finally:
-        figure.clear()
+        plt.close(figure)
 
 
 def test_empty_plot_uses_required_axes_labels_and_limits():
@@ -45,4 +46,4 @@ def test_empty_plot_uses_required_axes_labels_and_limits():
         assert axis.get_xlim() == pytest.approx((-180.0, 180.0))
         assert axis.get_ylim() == pytest.approx((-180.0, 180.0))
     finally:
-        figure.clear()
+        plt.close(figure)

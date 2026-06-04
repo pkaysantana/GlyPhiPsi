@@ -4,7 +4,7 @@ Python project for extracting glycine phi/psi backbone dihedral angles from loca
 
 See [PROJECT_SPEC.md](PROJECT_SPEC.md) for the initial project specification.
 
-## Phase 1 Scope
+## Scope
 
 GlyPhiPsi reads local `.pdb`, `.ent`, `.cif`, and `.mmcif` protein structure files, filters for standard `GLY` residues, calculates backbone phi and psi angles, writes a CSV table, and can optionally save a Phase 2 scatter plot.
 
