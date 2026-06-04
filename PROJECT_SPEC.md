@@ -56,7 +56,7 @@ glyphipsi structures/*.cif \
   --out results/gly_phi_psi.csv \
   --plot results/gly_ramachandran.png \
   --model-policy first \
-  --altloc-policy highest-occupancy \
+  --altloc-policy skip \
   --break-max-c-n-distance 1.8
 ```
 
@@ -171,18 +171,13 @@ Skipped residues should not appear in the primary clean CSV. A separate skipped-
 
 The implementation must not silently choose arbitrary coordinates when alternate conformations are present.
 
-Recommended initial deterministic policy:
-
-1. Prefer blank alternate location identifier if present.
-2. Otherwise choose the alternate location with highest occupancy for each required atom.
-3. If occupancy is tied or missing in a way that prevents deterministic selection, skip the residue.
-4. If required atoms for one residue would be selected from conflicting alternate identifiers and the implementation does not explicitly support that case, skip the residue.
-
-The chosen policy must be documented in command help and metadata where practical.
-
-Simpler acceptable initial policy:
+Initial Phase 1 policy:
 
 - Skip any residue involved in phi or psi calculation if any required atom has multiple alternate conformations.
+
+Higher-resolution policies, such as selecting the highest-occupancy altloc when deterministically available, can be deferred to Phase 1.5 or Phase 2.
+
+The chosen policy must be documented in command help and metadata where practical.
 
 ## Chain Break Policy
 
@@ -195,7 +190,7 @@ Recommended initial detection:
 3. Treat non-adjacent polymer residues as a break when the parser exposes chain discontinuity information.
 4. Optionally apply a configurable peptide continuity check using the distance between previous `C` and current `N`, and between current `C` and next `N`.
 
-If a distance threshold is used, it must be documented as a pragmatic continuity heuristic, not a full validation method.
+If a distance threshold is used, it must be documented as a pragmatic continuity heuristic, not a full validation method. A permissive cutoff such as 1.8 Å is reasonable for Phase 1 but should not be treated as a strict validation feature.
 
 ## Error Handling
 
@@ -319,14 +314,21 @@ Recommended development dependencies:
 
 The project should pin or bound dependencies only when necessary for compatibility. The specification does not require a specific parser library if equivalent behavior is implemented and tested.
 
-## Acceptance Criteria
-
-The initial implementation is complete when:
+## Phase 1 Acceptance Criteria
 
 1. A user can run the CLI against local PDB or mmCIF files.
 2. The command produces a CSV with one clean row per accepted glycine residue.
-3. The command produces a scatter plot with phi and psi axes from -180 to +180 degrees.
+3. The CSV includes source file, model, chain, residue identifier, phi, and psi.
 4. Required skip rules are implemented and covered by tests.
-5. The implementation makes no unsupported scientific claims about Ramachandran regions or structural quality.
-6. Empty-result cases are handled gracefully.
+5. Dihedral angle calculation is independently tested.
+6. The implementation makes no unsupported scientific claims about Ramachandran regions or structural quality.
+7. Empty-result cases are handled gracefully.
+8. Plotting is intentionally not implemented in Phase 1.
+
+## Phase 2 Acceptance Criteria
+
+1. Generate a scatter plot from the Phase 1 CSV or in-memory angle table.
+2. Enforce phi and psi axes from -180 to +180 degrees.
+3. Label axes correctly.
+4. Handle empty datasets gracefully.
 
