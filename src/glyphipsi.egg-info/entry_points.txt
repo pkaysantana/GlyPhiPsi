@@ -1,0 +1,2 @@
+[console_scripts]
+glyphipsi = glyphipsi.cli:main

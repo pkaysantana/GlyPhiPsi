@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "glyphipsi"
+version = "0.1.0"
+description = "Glycine-specific phi/psi extraction from local PDB and mmCIF files."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "biopython>=1.83",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+]
+
+[project.scripts]
+glyphipsi = "glyphipsi.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
