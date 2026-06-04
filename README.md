@@ -69,6 +69,29 @@ uv run glyphipsi data/examples/3IWX.pdb \
   --residue-mode gly-vs-general
 ```
 
+## Residue Modes
+
+GlyPhiPsi supports different residue extraction modes.
+
+General mode currently excludes glycine and proline. Glycine is handled separately, and proline is excluded because its backbone behaviour is distinct and should be handled in a later residue-specific mode.
+
+```bash
+# Default: glycine only
+uv run glyphipsi data/examples/3IWX.pdb --out results/gly_phi_psi.csv
+
+# General residues only, excluding glycine and proline
+uv run glyphipsi data/examples/3IWX.pdb \
+  --residue-mode general \
+  --out results/general_phi_psi.csv \
+  --plot results/general_ramachandran.png
+
+# Glycine vs general comparison
+uv run glyphipsi data/examples/3IWX.pdb \
+  --residue-mode gly-vs-general \
+  --out results/comparison_phi_psi.csv \
+  --plot results/gly_vs_general_ramachandran.png
+```
+
 ## CSV Output
 
 The output CSV contains one row per accepted residue selected by `--residue-mode`.
