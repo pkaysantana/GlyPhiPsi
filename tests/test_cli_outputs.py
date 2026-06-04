@@ -15,6 +15,12 @@ def read_csv(path: Path):
         return list(csv.DictReader(handle))
 
 
+def read_single_stats_row(path: Path):
+    rows = read_csv(path)
+    assert len(rows) == 1
+    return rows[0]
+
+
 def test_cli_writes_required_csv_columns_and_one_row(tmp_path):
     pdb_path = write_pdb(tmp_path / "input.pdb", base_atoms())
     out_path = tmp_path / "results" / "gly_phi_psi.csv"
@@ -90,6 +96,50 @@ def test_cli_writes_summary_for_multiple_valid_inputs(tmp_path):
     ]
 
 
+def test_cli_writes_stats_for_small_fixture_dataset(tmp_path):
+    first_path = write_pdb(tmp_path / "first.pdb", base_atoms())
+    second_path = write_pdb(tmp_path / "second.pdb", base_atoms())
+    out_path = tmp_path / "atlas.csv"
+    stats_path = tmp_path / "stats.csv"
+
+    exit_code = main([str(first_path), str(second_path), "--out", str(out_path), "--stats", str(stats_path)])
+
+    assert exit_code == 0
+    rows = read_csv(out_path)
+    stats = read_single_stats_row(stats_path)
+    expected_phi = f"{float(rows[0]['phi_deg']):.6f}"
+    expected_psi = f"{float(rows[0]['psi_deg']):.6f}"
+
+    assert stats["total_input_files"] == "2"
+    assert stats["files_parsed_successfully"] == "2"
+    assert stats["files_failed"] == "0"
+    assert stats["total_accepted_residues"] == "2"
+    assert stats["accepted_glycine_residues"] == "2"
+    assert stats["unique_source_files_represented"] == "2"
+    assert stats["unique_chains_represented"] == "2"
+    assert stats["phi_min"] == expected_phi
+    assert stats["phi_max"] == expected_phi
+    assert stats["mean_phi"] == expected_phi
+    assert stats["median_phi"] == expected_phi
+    assert stats["psi_min"] == expected_psi
+    assert stats["psi_max"] == expected_psi
+    assert stats["mean_psi"] == expected_psi
+    assert stats["median_psi"] == expected_psi
+
+
+def test_cli_writes_text_stats_file(tmp_path):
+    pdb_path = write_pdb(tmp_path / "input.pdb", base_atoms())
+    out_path = tmp_path / "out.csv"
+    stats_path = tmp_path / "stats.txt"
+
+    exit_code = main([str(pdb_path), "--out", str(out_path), "--stats", str(stats_path)])
+
+    assert exit_code == 0
+    text = stats_path.read_text(encoding="utf-8")
+    assert "total_input_files: 1" in text
+    assert "total_accepted_residues: 1" in text
+
+
 def test_cli_continues_after_failed_file_and_records_summary(tmp_path):
     valid_path = write_pdb(tmp_path / "valid.pdb", base_atoms())
     bad_path = tmp_path / "bad.cif"
@@ -117,6 +167,39 @@ def test_cli_continues_after_failed_file_and_records_summary(tmp_path):
     assert summary_rows[1]["accepted_residue_count"] == "0"
     assert summary_rows[1]["skipped_or_error_count"] == "1"
     assert summary_rows[1]["error_message"]
+
+
+def test_cli_stats_include_failed_file_counts_when_summary_exists(tmp_path):
+    valid_path = write_pdb(tmp_path / "valid.pdb", base_atoms())
+    bad_path = tmp_path / "bad.cif"
+    bad_path.write_text("not a valid mmCIF file\n", encoding="utf-8")
+    out_path = tmp_path / "atlas.csv"
+    summary_path = tmp_path / "summary.csv"
+    stats_path = tmp_path / "stats.csv"
+
+    exit_code = main(
+        [
+            str(valid_path),
+            str(bad_path),
+            "--out",
+            str(out_path),
+            "--summary",
+            str(summary_path),
+            "--stats",
+            str(stats_path),
+        ]
+    )
+
+    assert exit_code == 0
+    assert len(read_csv(summary_path)) == 2
+    stats = read_single_stats_row(stats_path)
+    assert stats["total_input_files"] == "2"
+    assert stats["files_parsed_successfully"] == "1"
+    assert stats["files_failed"] == "1"
+    assert stats["total_accepted_residues"] == "1"
+    assert stats["accepted_glycine_residues"] == "1"
+    assert stats["unique_source_files_represented"] == "1"
+    assert stats["unique_chains_represented"] == "1"
 
 
 def test_cli_strict_mode_stops_on_failed_file(tmp_path):
@@ -233,6 +316,34 @@ def test_cli_writes_empty_aggregate_outputs_gracefully(tmp_path):
     assert mpimg.imread(plot_path).size > 0
 
 
+def test_cli_writes_empty_stats_gracefully(tmp_path):
+    atoms = [atom for atom in base_atoms() if atom["resname"] != "GLY"]
+    first_path = write_pdb(tmp_path / "first_no_gly.pdb", atoms)
+    second_path = write_pdb(tmp_path / "second_no_gly.pdb", atoms)
+    out_path = tmp_path / "empty_atlas.csv"
+    stats_path = tmp_path / "empty_stats.csv"
+
+    exit_code = main([str(first_path), str(second_path), "--out", str(out_path), "--stats", str(stats_path)])
+
+    assert exit_code == 0
+    stats = read_single_stats_row(stats_path)
+    assert stats["total_input_files"] == "2"
+    assert stats["files_parsed_successfully"] == "2"
+    assert stats["files_failed"] == "0"
+    assert stats["total_accepted_residues"] == "0"
+    assert stats["accepted_glycine_residues"] == "0"
+    assert stats["unique_source_files_represented"] == "0"
+    assert stats["unique_chains_represented"] == "0"
+    assert stats["phi_min"] == ""
+    assert stats["phi_max"] == ""
+    assert stats["psi_min"] == ""
+    assert stats["psi_max"] == ""
+    assert stats["mean_phi"] == ""
+    assert stats["mean_psi"] == ""
+    assert stats["median_phi"] == ""
+    assert stats["median_psi"] == ""
+
+
 def test_plotting_does_not_change_csv_output(tmp_path):
     pdb_path = write_pdb(tmp_path / "input.pdb", base_atoms())
     csv_only_path = tmp_path / "csv_only.csv"
@@ -243,6 +354,36 @@ def test_plotting_does_not_change_csv_output(tmp_path):
     assert main([str(pdb_path), "--out", str(csv_with_plot_path), "--plot", str(plot_path)]) == 0
 
     assert csv_with_plot_path.read_text(encoding="utf-8") == csv_only_path.read_text(encoding="utf-8")
+
+
+def test_stats_does_not_change_csv_or_plot_output(tmp_path):
+    pdb_path = write_pdb(tmp_path / "input.pdb", base_atoms())
+    baseline_csv = tmp_path / "baseline.csv"
+    with_stats_csv = tmp_path / "with_stats.csv"
+    baseline_plot = tmp_path / "baseline.png"
+    with_stats_plot = tmp_path / "with_stats.png"
+    stats_path = tmp_path / "stats.csv"
+
+    assert main([str(pdb_path), "--out", str(baseline_csv), "--plot", str(baseline_plot)]) == 0
+    assert (
+        main(
+            [
+                str(pdb_path),
+                "--out",
+                str(with_stats_csv),
+                "--plot",
+                str(with_stats_plot),
+                "--stats",
+                str(stats_path),
+            ]
+        )
+        == 0
+    )
+
+    assert with_stats_csv.read_text(encoding="utf-8") == baseline_csv.read_text(encoding="utf-8")
+    assert baseline_plot.is_file()
+    assert with_stats_plot.is_file()
+    assert stats_path.is_file()
 
 
 def test_cli_writes_empty_csv_with_header_when_no_rows_pass(tmp_path):

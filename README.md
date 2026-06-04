@@ -16,6 +16,7 @@ It parses local PDB or mmCIF protein structure files, extracts backbone phi/psi 
 - Writes a clean aggregated CSV output.
 - Generates glycine-only Ramachandran scatter plots.
 - Can write a per-source-file batch summary CSV.
+- Can write aggregate atlas summary statistics.
 - Continues past file-level parse errors unless `--strict` is supplied.
 - Handles empty outputs gracefully.
 
@@ -75,6 +76,16 @@ uv run glyphipsi data/atlas/*.cif \
   --summary results/atlas/summary.csv
 ```
 
+Write aggregate atlas statistics:
+
+```bash
+uv run glyphipsi data/atlas/*.cif \
+  --out results/atlas/gly_phi_psi_atlas.csv \
+  --plot results/atlas/gly_atlas.png \
+  --summary results/atlas/summary.csv \
+  --stats results/atlas/stats.csv
+```
+
 Use strict mode to stop on the first file-level error:
 
 ```bash
@@ -119,6 +130,23 @@ Summary columns:
 - `error_message`
 
 For successfully parsed files, `accepted_residue_count` is exact. Per-residue skipped counts are not tracked yet, so `skipped_or_error_count` is blank for successful files. For file-level failures, `parsed_successfully` is `false`, `accepted_residue_count` is `0`, and `skipped_or_error_count` is `1`.
+
+## Stats Output
+
+When `--stats` is supplied, GlyPhiPsi writes aggregate dataset-level statistics. Use `.csv` for a single-row machine-readable table; other extensions write simple text key/value lines.
+
+Stats include:
+
+- total input files;
+- files parsed successfully;
+- files failed;
+- total accepted residues;
+- accepted glycine residues;
+- unique source files represented in the main CSV;
+- unique chains represented, counted by source file, model, and chain ID;
+- phi and psi minimum, maximum, mean, and median.
+
+If no residues are accepted, the stats file is still created and angle fields are left blank.
 
 ## Scientific Notes
 

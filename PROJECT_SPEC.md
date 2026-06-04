@@ -66,7 +66,8 @@ Optional v0.4 batch atlas command:
 glyphipsi data/atlas/*.cif \
   --out results/atlas/gly_phi_psi_atlas.csv \
   --plot results/atlas/gly_atlas.png \
-  --summary results/atlas/summary.csv
+  --summary results/atlas/summary.csv \
+  --stats results/atlas/stats.csv
 ```
 
 ### Input Assumptions
@@ -149,6 +150,32 @@ Required summary columns:
 | `error_message` | Empty for successful files; parser or file-level error message for failures. |
 
 Batch runs continue past file-level errors unless `--strict` is supplied.
+
+### v0.4.1 Stats Output
+
+When `--stats` is supplied, the command writes aggregate dataset-level statistics. A `.csv` path writes a single-row CSV table; other extensions write simple text key/value lines.
+
+Required stats:
+
+| Field | Description |
+| --- | --- |
+| `total_input_files` | Number of expanded input paths. |
+| `files_parsed_successfully` | Count of files that parsed successfully. |
+| `files_failed` | Count of file-level failures. |
+| `total_accepted_residues` | Number of accepted rows in the main CSV. |
+| `accepted_glycine_residues` | Number of accepted rows with residue name `GLY`. |
+| `unique_source_files_represented` | Number of source files represented by at least one main CSV row. |
+| `unique_chains_represented` | Number of represented source/model/chain combinations. |
+| `phi_min` | Minimum accepted phi angle, blank if no accepted rows. |
+| `phi_max` | Maximum accepted phi angle, blank if no accepted rows. |
+| `psi_min` | Minimum accepted psi angle, blank if no accepted rows. |
+| `psi_max` | Maximum accepted psi angle, blank if no accepted rows. |
+| `mean_phi` | Mean accepted phi angle, blank if no accepted rows. |
+| `mean_psi` | Mean accepted psi angle, blank if no accepted rows. |
+| `median_phi` | Median accepted phi angle, blank if no accepted rows. |
+| `median_psi` | Median accepted psi angle, blank if no accepted rows. |
+
+If future row schemas include `residue_group`, stats output may add `residue_group_<group>_count` fields. These fields are descriptive only and must not imply validation categories.
 
 ## Scientific Assumptions
 

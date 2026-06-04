@@ -30,6 +30,16 @@ Status: complete.
 - Optional per-source-file summary CSV.
 - Continue-on-error batch behavior unless `--strict` is supplied.
 
+## v0.4.1 - Atlas Summary Statistics
+
+Status: complete.
+
+- Optional `--stats` aggregate output.
+- Dataset-level file and residue counts.
+- Unique source-file and chain counts.
+- Phi/psi min, max, mean, and median.
+- Empty dataset handling.
+
 ## Possible Future Work
 
 - Add separate skipped-residue reporting with per-residue skip reasons.
