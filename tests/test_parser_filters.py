@@ -66,7 +66,7 @@ def test_skips_glycine_missing_next_n(tmp_path):
     assert extract_rows(pdb_path) == []
 
 
-def test_skips_first_chain_residue(tmp_path):
+def test_skips_first_chain_glycine_residue(tmp_path):
     atoms = [atom for atom in base_atoms() if atom["resseq"] in {2, 3}]
     for atom in atoms:
         if atom["resname"] == "GLY":
@@ -78,7 +78,7 @@ def test_skips_first_chain_residue(tmp_path):
     assert extract_rows(pdb_path) == []
 
 
-def test_skips_last_chain_residue(tmp_path):
+def test_skips_last_chain_glycine_residue(tmp_path):
     atoms = [atom for atom in base_atoms() if atom["resseq"] in {1, 2}]
     pdb_path = write_pdb(tmp_path / "last_residue.pdb", atoms)
 
@@ -99,12 +99,19 @@ def test_does_not_calculate_across_chain_boundary(tmp_path):
     assert extract_rows(pdb_path) == []
 
 
-def test_skips_glycine_adjacent_to_simple_chain_break(tmp_path):
+@pytest.mark.parametrize(
+    ("resname", "atom_name", "new_x"),
+    [
+        ("ALA", "C", -10.0),
+        ("SER", "N", 20.0),
+    ],
+)
+def test_skips_glycine_adjacent_to_simple_chain_break_on_either_side(tmp_path, resname, atom_name, new_x):
     atoms = base_atoms()
     for atom in atoms:
-        if atom["resname"] == "ALA" and atom["name"] == "C":
-            atom["x"] = -10.0
-    pdb_path = write_pdb(tmp_path / "chain_break.pdb", atoms)
+        if atom["resname"] == resname and atom["name"] == atom_name:
+            atom["x"] = new_x
+    pdb_path = write_pdb(tmp_path / f"chain_break_{resname}_{atom_name}.pdb", atoms)
 
     assert extract_rows(pdb_path) == []
 
@@ -120,15 +127,39 @@ def test_skips_non_standard_previous_neighbour(tmp_path):
     assert extract_rows(pdb_path) == []
 
 
-def test_skips_unresolved_alternate_conformation_on_required_atom(tmp_path):
-    atoms = [atom for atom in base_atoms() if not (atom["resname"] == "GLY" and atom["name"] == "CA")]
+@pytest.mark.parametrize(
+    ("resname", "atom_name"),
+    [
+        ("ALA", "C"),
+        ("GLY", "N"),
+        ("GLY", "CA"),
+        ("GLY", "C"),
+        ("SER", "N"),
+    ],
+)
+def test_skips_unresolved_alternate_conformation_on_any_required_atom(tmp_path, resname, atom_name):
+    atoms = [atom for atom in base_atoms() if not (atom["resname"] == resname and atom["name"] == atom_name)]
+    original = next(atom for atom in base_atoms() if atom["resname"] == resname and atom["name"] == atom_name)
     atoms.extend(
         [
-            atom_dict(10, "CA", "GLY", "A", 2, 2.0, 1.0, 0.0, altloc="A", occupancy=0.5),
-            atom_dict(11, "CA", "GLY", "A", 2, 2.1, 1.1, 0.1, altloc="B", occupancy=0.5),
+            {
+                **original,
+                "serial": 10,
+                "altloc": "A",
+                "occupancy": 0.5,
+            },
+            {
+                **original,
+                "serial": 11,
+                "altloc": "B",
+                "occupancy": 0.5,
+                "x": original["x"] + 0.1,
+                "y": original["y"] + 0.1,
+                "z": original["z"] + 0.1,
+            },
         ]
     )
-    pdb_path = write_pdb(tmp_path / "altloc.pdb", atoms)
+    pdb_path = write_pdb(tmp_path / f"altloc_{resname}_{atom_name}.pdb", atoms)
 
     assert extract_rows(pdb_path) == []
 
@@ -155,8 +186,22 @@ def test_parses_minimal_mmcif(tmp_path):
     assert rows[0].residue_name == "GLY"
 
 
+def test_pdb_and_mmcif_outputs_are_consistent_for_same_atoms(tmp_path):
+    pdb_path = write_pdb(tmp_path / "complete.pdb", base_atoms())
+    cif_path = write_mmcif(tmp_path / "complete.cif", base_atoms())
+
+    pdb_rows = extract_rows(pdb_path)
+    cif_rows = extract_rows(cif_path)
+
+    assert comparable_rows(pdb_rows) == pytest.approx(comparable_rows(cif_rows), abs=1e-12)
+
+
 def extract_rows(path: Path):
     return extract_gly_phi_psi(parse_structure(path), str(path))
+
+
+def comparable_rows(rows):
+    return [(row.phi_deg, row.psi_deg) for row in rows]
 
 
 def biopython_dihedral(*points):
