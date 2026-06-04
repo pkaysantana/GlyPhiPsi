@@ -11,17 +11,23 @@ from pathlib import Path
 
 from .io import StructureParseError, is_supported_structure_path, parse_structure
 from .plotting import plot_phi_psi
-from .residues import CSV_COLUMNS, GlyPhiPsiRow, extract_gly_phi_psi
+from .residues import CSV_COLUMNS, RESIDUE_MODES, GlyPhiPsiRow, extract_gly_phi_psi
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="glyphipsi",
-        description="Extract glycine phi/psi angles from local PDB and mmCIF files and write CSV output.",
+        description="Extract phi/psi angles from local PDB and mmCIF files and write CSV output.",
     )
     parser.add_argument("inputs", nargs="+", help="Local .pdb, .ent, .cif, or .mmcif files. Globs are accepted.")
     parser.add_argument("--out", required=True, help="Output CSV path.")
-    parser.add_argument("--plot", help="Optional PNG path for a glycine phi/psi scatter plot.")
+    parser.add_argument("--plot", help="Optional PNG path for a phi/psi scatter plot.")
+    parser.add_argument(
+        "--residue-mode",
+        choices=RESIDUE_MODES,
+        default="gly",
+        help="Residue selection mode. Defaults to glycine-only output.",
+    )
     parser.add_argument(
         "--model-policy",
         choices=["first"],
@@ -87,6 +93,7 @@ def main(argv: list[str] | None = None) -> int:
             extract_gly_phi_psi(
                 structure,
                 str(path),
+                residue_mode=args.residue_mode,
                 model_policy=args.model_policy,
                 altloc_policy=args.altloc_policy,
                 break_max_c_n_distance=args.break_max_c_n_distance,
@@ -98,7 +105,7 @@ def main(argv: list[str] | None = None) -> int:
 
     _write_csv(Path(args.out), all_rows)
     if args.plot:
-        plot_phi_psi(all_rows, Path(args.plot))
+        plot_phi_psi(all_rows, Path(args.plot), residue_mode=args.residue_mode)
     return 0
 
 

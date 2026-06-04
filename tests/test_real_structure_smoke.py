@@ -13,6 +13,7 @@ def test_tracked_real_pdb_fixture_extracts_glycine_angles():
 
     assert len(rows) == 12
     assert {row.residue_name for row in rows} == {"GLY"}
+    assert {row.residue_group for row in rows} == {"gly"}
     assert {row.chain_id for row in rows} == {"A", "B"}
     assert rows[0].chain_id == "A"
     assert rows[0].residue_number == "13"

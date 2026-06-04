@@ -16,8 +16,39 @@ def test_includes_complete_standard_glycine(tmp_path):
 
     assert len(rows) == 1
     assert rows[0].residue_name == "GLY"
+    assert rows[0].residue_group == "gly"
     assert rows[0].chain_id == "A"
     assert rows[0].residue_number == "2"
+
+
+def test_default_residue_mode_is_glycine_only(tmp_path):
+    pdb_path = write_pdb(tmp_path / "mixed.pdb", mixed_atoms())
+
+    rows = extract_rows(pdb_path)
+
+    assert [row.residue_name for row in rows] == ["GLY"]
+    assert [row.residue_group for row in rows] == ["gly"]
+
+
+def test_general_mode_extracts_standard_non_gly_non_pro_residues(tmp_path):
+    pdb_path = write_pdb(tmp_path / "mixed.pdb", mixed_atoms())
+
+    rows = extract_rows(pdb_path, residue_mode="general")
+
+    assert [row.residue_name for row in rows] == ["SER", "VAL"]
+    assert [row.residue_group for row in rows] == ["general", "general"]
+
+
+def test_gly_vs_general_mode_labels_residue_groups(tmp_path):
+    pdb_path = write_pdb(tmp_path / "mixed.pdb", mixed_atoms())
+
+    rows = extract_rows(pdb_path, residue_mode="gly-vs-general")
+
+    assert [(row.residue_name, row.residue_group) for row in rows] == [
+        ("SER", "general"),
+        ("GLY", "gly"),
+        ("VAL", "general"),
+    ]
 
 
 def test_extracted_phi_psi_match_biopython_conventional_atom_order(tmp_path):
@@ -196,8 +227,8 @@ def test_pdb_and_mmcif_outputs_are_consistent_for_same_atoms(tmp_path):
     assert comparable_rows(pdb_rows) == pytest.approx(comparable_rows(cif_rows), abs=1e-12)
 
 
-def extract_rows(path: Path):
-    return extract_gly_phi_psi(parse_structure(path), str(path))
+def extract_rows(path: Path, *, residue_mode="gly"):
+    return extract_gly_phi_psi(parse_structure(path), str(path), residue_mode=residue_mode)
 
 
 def comparable_rows(rows):
@@ -224,6 +255,29 @@ def base_atoms():
         atom_dict(7, "N", "SER", "A", 3, 4.5, 1.0, 1.0),
         atom_dict(8, "CA", "SER", "A", 3, 5.0, 2.0, 1.0),
         atom_dict(9, "C", "SER", "A", 3, 6.0, 2.0, 1.0),
+    ]
+
+
+def mixed_atoms():
+    return [
+        atom_dict(1, "N", "ALA", "A", 1, -1.2, 0.0, 0.0),
+        atom_dict(2, "CA", "ALA", "A", 1, -0.6, 0.5, 0.0),
+        atom_dict(3, "C", "ALA", "A", 1, 0.0, 0.0, 0.0),
+        atom_dict(4, "N", "SER", "A", 2, 1.3, 0.0, 0.0),
+        atom_dict(5, "CA", "SER", "A", 2, 2.0, 1.0, 0.0),
+        atom_dict(6, "C", "SER", "A", 2, 3.2, 1.0, 1.0),
+        atom_dict(7, "N", "GLY", "A", 3, 4.5, 1.0, 1.0),
+        atom_dict(8, "CA", "GLY", "A", 3, 5.1, 2.0, 1.1),
+        atom_dict(9, "C", "GLY", "A", 3, 6.3, 2.0, 0.2),
+        atom_dict(10, "N", "PRO", "A", 4, 7.6, 2.0, 0.2),
+        atom_dict(11, "CA", "PRO", "A", 4, 8.2, 3.0, 0.5),
+        atom_dict(12, "C", "PRO", "A", 4, 9.4, 3.0, -0.2),
+        atom_dict(13, "N", "VAL", "A", 5, 10.7, 3.0, -0.2),
+        atom_dict(14, "CA", "VAL", "A", 5, 11.3, 4.0, 0.2),
+        atom_dict(15, "C", "VAL", "A", 5, 12.5, 4.0, 1.1),
+        atom_dict(16, "N", "LEU", "A", 6, 13.8, 4.0, 1.1),
+        atom_dict(17, "CA", "LEU", "A", 6, 14.4, 5.0, 1.0),
+        atom_dict(18, "C", "LEU", "A", 6, 15.6, 5.0, 0.1),
     ]
 
 

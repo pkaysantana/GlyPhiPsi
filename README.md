@@ -2,7 +2,7 @@
 
 GlyPhiPsi is a Python command-line tool for glycine-specific Ramachandran analysis.
 
-It parses local PDB or mmCIF protein structure files, extracts backbone phi/psi dihedral angles for standard glycine residues, writes a clean CSV table, and can generate a glycine-specific Ramachandran scatter plot.
+It parses local PDB or mmCIF protein structure files, extracts backbone phi/psi dihedral angles for standard glycine residues, writes a clean CSV table, and can generate a glycine-specific Ramachandran scatter plot. It can also extract non-glycine, non-proline standard residues for comparison when requested.
 
 ## Why Glycine?
 
@@ -13,7 +13,8 @@ This means glycine can occupy regions of phi/psi conformational space that are l
 ## Current Features
 
 - Parses local `.pdb`, `.ent`, `.cif`, and `.mmcif` files.
-- Identifies standard `GLY` residues.
+- Identifies standard `GLY` residues by default.
+- Supports optional residue modes: `gly`, `general`, and `gly-vs-general`.
 - Calculates backbone:
   - phi = C(i-1), N(i), CA(i), C(i)
   - psi = N(i), CA(i), C(i), N(i+1)
@@ -59,6 +60,15 @@ uv run glyphipsi data/examples/3IWX.pdb \
   --plot results/gly_ramachandran.png
 ```
 
+Generate a glycine-vs-general comparison:
+
+```bash
+uv run glyphipsi data/examples/3IWX.pdb \
+  --out results/gly_vs_general.csv \
+  --plot results/gly_vs_general.png \
+  --residue-mode gly-vs-general
+```
+
 ## CSV Output
 
 The output CSV contains one row per accepted glycine residue.
@@ -69,6 +79,7 @@ Required columns include:
 - `model_id`
 - `chain_id`
 - `residue_name`
+- `residue_group`
 - `residue_number`
 - `insertion_code`
 - `phi_deg`
@@ -77,8 +88,8 @@ Required columns include:
 Example:
 
 ```csv
-source_file,model_id,chain_id,residue_name,residue_number,insertion_code,phi_deg,psi_deg
-example.cif,1,A,GLY,42,,-76.214,148.903
+source_file,model_id,chain_id,residue_name,residue_group,residue_number,insertion_code,phi_deg,psi_deg
+example.cif,1,A,GLY,gly,42,,-76.214,148.903
 ```
 
 ## Scientific Notes
@@ -91,6 +102,8 @@ For residue `i`:
 - psi uses atoms N(i), CA(i), C(i), N(i+1)
 
 The first residue in a chain cannot have phi calculated, and the last residue in a chain cannot have psi calculated. GlyPhiPsi skips residues where required atoms or neighbours are missing.
+
+The `general` group currently includes standard amino acids except `GLY` and `PRO`. Proline is excluded from this comparison mode for now so it can be handled separately in future work.
 
 ## Example Result
 

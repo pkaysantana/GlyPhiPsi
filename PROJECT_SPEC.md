@@ -82,6 +82,7 @@ Required columns:
 | `model_id` | Model identifier used for calculation. |
 | `chain_id` | Chain identifier. |
 | `residue_name` | Residue name, expected to be `GLY` for accepted rows. |
+| `residue_group` | Residue group label, currently `gly` or `general`. |
 | `residue_number` | Author or parser residue sequence number. |
 | `insertion_code` | Insertion code if present, otherwise empty. |
 | `phi_deg` | Phi angle in degrees, normalized to -180 to +180. |
@@ -99,9 +100,21 @@ Optional useful columns:
 Example CSV:
 
 ```csv
-source_file,model_id,chain_id,residue_name,residue_number,insertion_code,phi_deg,psi_deg
-example.cif,1,A,GLY,42,,-76.214,148.903
+source_file,model_id,chain_id,residue_name,residue_group,residue_number,insertion_code,phi_deg,psi_deg
+example.cif,1,A,GLY,gly,42,,-76.214,148.903
 ```
+
+### v0.3 Residue Modes
+
+The default residue mode is `gly`, preserving glycine-only output.
+
+Supported modes:
+
+- `gly`: standard `GLY` residues only.
+- `general`: standard amino acids excluding `GLY` and `PRO`.
+- `gly-vs-general`: both `gly` and `general` rows, distinguished by `residue_group`.
+
+Proline is intentionally excluded from `general` for now so it can be handled separately in future work. Non-standard residues are excluded from all modes.
 
 ### Phase 2 Plot Output
 
@@ -336,4 +349,3 @@ The project should pin or bound dependencies only when necessary for compatibili
 2. Enforce phi and psi axes from -180 to +180 degrees.
 3. Label axes correctly.
 4. Handle empty datasets gracefully.
-

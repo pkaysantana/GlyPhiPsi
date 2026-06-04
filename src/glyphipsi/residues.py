@@ -1,9 +1,9 @@
-"""Residue filtering and glycine phi/psi extraction."""
+"""Residue filtering and phi/psi extraction."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, Literal
 
 from Bio.PDB.Polypeptide import is_aa
 
@@ -14,11 +14,14 @@ CSV_COLUMNS = [
     "model_id",
     "chain_id",
     "residue_name",
+    "residue_group",
     "residue_number",
     "insertion_code",
     "phi_deg",
     "psi_deg",
 ]
+
+ResidueMode = Literal["gly", "general", "gly-vs-general"]
 
 STANDARD_AMINO_ACIDS = {
     "ALA",
@@ -45,6 +48,7 @@ STANDARD_AMINO_ACIDS = {
 
 BACKBONE_ATOMS = {"N", "CA", "C"}
 WATER_NAMES = {"HOH", "H2O", "WAT", "DOD"}
+RESIDUE_MODES = ("gly", "general", "gly-vs-general")
 
 
 @dataclass(frozen=True)
@@ -53,6 +57,7 @@ class GlyPhiPsiRow:
     model_id: str
     chain_id: str
     residue_name: str
+    residue_group: str
     residue_number: str
     insertion_code: str
     phi_deg: float
@@ -67,11 +72,14 @@ def extract_gly_phi_psi(
     structure,
     source_file: str,
     *,
+    residue_mode: ResidueMode = "gly",
     model_policy: str = "first",
     altloc_policy: str = "skip",
     break_max_c_n_distance: float | None = 1.8,
 ) -> list[GlyPhiPsiRow]:
-    """Extract accepted glycine phi/psi rows from a parsed structure."""
+    """Extract accepted phi/psi rows from a parsed structure."""
+    if residue_mode not in RESIDUE_MODES:
+        raise ValueError(f"Unsupported residue mode: {residue_mode}")
     if model_policy != "first":
         raise ValueError("Phase 1 only supports model_policy='first'.")
     if altloc_policy != "skip":
@@ -87,7 +95,8 @@ def extract_gly_phi_psi(
     for chain in model.get_chains():
         chain_residues = list(_chain_residue_candidates(chain))
         for index, residue in enumerate(chain_residues):
-            if not is_standard_glycine(residue):
+            residue_group = residue_group_for_mode(residue, residue_mode)
+            if residue_group is None:
                 continue
             if index == 0 or index == len(chain_residues) - 1:
                 continue
@@ -122,6 +131,7 @@ def extract_gly_phi_psi(
                     model_id=model_id,
                     chain_id=str(chain.id).strip() or "",
                     residue_name=_residue_name(residue),
+                    residue_group=residue_group,
                     residue_number=residue_number,
                     insertion_code=insertion_code,
                     phi_deg=phi,
@@ -134,6 +144,18 @@ def extract_gly_phi_psi(
 
 def is_standard_glycine(residue) -> bool:
     return is_standard_amino_acid(residue) and _residue_name(residue) == "GLY"
+
+
+def is_general_residue(residue) -> bool:
+    return is_standard_amino_acid(residue) and _residue_name(residue) not in {"GLY", "PRO"}
+
+
+def residue_group_for_mode(residue, residue_mode: ResidueMode) -> str | None:
+    if residue_mode in {"gly", "gly-vs-general"} and is_standard_glycine(residue):
+        return "gly"
+    if residue_mode in {"general", "gly-vs-general"} and is_general_residue(residue):
+        return "general"
+    return None
 
 
 def is_standard_amino_acid(residue) -> bool:
