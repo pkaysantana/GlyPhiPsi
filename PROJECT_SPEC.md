@@ -2,9 +2,9 @@
 
 ## Purpose
 
-GlyPhiPsi is a Python command-line project for glycine-specific Ramachandran analysis. It parses local protein structure files in PDB or mmCIF format, extracts backbone phi and psi dihedral angles for standard glycine residues, writes a clean CSV table, and generates a scatter plot with both axes spanning -180 to +180 degrees.
+GlyPhiPsi is a Python command-line project for glycine-specific Ramachandran analysis. It parses local protein structure files in PDB or mmCIF format, extracts backbone phi and psi dihedral angles for standard glycine residues, and writes a clean CSV table, with plotting planned as a Phase 2 extension.
 
-The initial version intentionally avoids advanced structural validation, statistical classification, favored/outlier labeling, density estimation, and scientific interpretation beyond reporting calculated backbone angles.
+The initial Phase 1 implementation intentionally avoids advanced structural validation, statistical classification, favored/outlier labeling, density estimation, biological interpretation, and plotting beyond reporting calculated backbone angles.
 
 ## Core Requirements
 
@@ -16,7 +16,7 @@ The initial version intentionally avoids advanced structural validation, statist
    - psi: N(i), CA(i), C(i), N(i+1)
 5. Skip residues when phi or psi cannot be calculated deterministically.
 6. Write one CSV row per accepted glycine residue.
-7. Generate a scatter plot of psi versus phi over the full -180 to +180 degree range.
+7. Phase 2: generate a scatter plot of psi versus phi over the full -180 to +180 degree range.
 8. Preserve enough identifiers in the CSV for each plotted point to be traced back to the source file, model, chain, and residue.
 
 ## Non-Goals For Initial Version
@@ -46,10 +46,10 @@ All inputs are local filesystem paths.
 Proposed command:
 
 ```bash
-glyphipsi input1.pdb input2.cif --out results/gly_phi_psi.csv --plot results/gly_ramachandran.png
+glyphipsi input1.pdb input2.cif --out results/gly_phi_psi.csv
 ```
 
-Optional proposed arguments:
+Optional Phase 2 plotting argument:
 
 ```bash
 glyphipsi structures/*.cif \
@@ -103,7 +103,9 @@ source_file,model_id,chain_id,residue_name,residue_number,insertion_code,phi_deg
 example.cif,1,A,GLY,42,,-76.214,148.903
 ```
 
-### Plot Output
+### Phase 2 Plot Output
+
+Phase 2 plotting is documented here as roadmap material, but it is out of Phase 1 scope.
 
 Required plot behavior:
 
@@ -205,6 +207,8 @@ The command should:
 
 ## Proposed Folder Structure
 
+Phase 2 roadmap items such as `plotting.py` are included for completeness, but Phase 1 can omit plot-specific implementation.
+
 ```text
 GlyPhiPsi/
   README.md
@@ -236,7 +240,7 @@ GlyPhiPsi/
 
 - Parse command-line arguments.
 - Expand input paths.
-- Coordinate parsing, CSV writing, and plotting.
+- Coordinate parsing and CSV writing in Phase 1; support Phase 2 plotting later.
 - Return clear exit codes.
 
 ### `io.py`
@@ -295,7 +299,7 @@ GlyPhiPsi/
 1. Writes a CSV with the required header.
 2. Writes one row per accepted glycine residue.
 3. Writes no skipped residues to the primary CSV.
-4. Produces a plot file with phi and psi axes fixed at -180 to +180.
+4. Phase 2: produces a plot file with phi and psi axes fixed at -180 to +180.
 5. Produces valid empty outputs when no residues pass filtering.
 6. Returns a non-zero exit code for missing input files.
 
@@ -305,7 +309,7 @@ Recommended dependencies:
 
 - `biopython` for PDB and mmCIF parsing.
 - `numpy` for vector math.
-- `matplotlib` for plotting.
+- `matplotlib` for plotting in Phase 2.
 
 Recommended development dependencies:
 
