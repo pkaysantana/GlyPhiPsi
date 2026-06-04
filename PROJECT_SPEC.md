@@ -17,7 +17,7 @@ The initial Phase 1 implementation intentionally avoids advanced structural vali
 5. Skip residues when phi or psi cannot be calculated deterministically.
 6. Write one CSV row per accepted glycine residue.
 7. Phase 2: generate a scatter plot of psi versus phi over the full -180 to +180 degree range.
-8. Preserve enough identifiers in the CSV for each plotted point to be traced back to the source file, model, chain, and residue.
+8. Preserve enough identifiers in the CSV for each calculated residue so that any future plotted point can be traced back to the source file, model, chain, and residue.
 
 ## Non-Goals For Initial Version
 
@@ -201,8 +201,8 @@ The command should:
 - Fail clearly when no input files are provided.
 - Fail clearly when an input path does not exist.
 - Continue processing other files when one file cannot be parsed, unless `--strict` is supplied.
-- Write an empty CSV with headers if no glycine residues pass the filters.
-- Generate an empty plot with the correct axes if no residues pass the filters, unless the user disables plot generation.
+- Phase 1: write an empty CSV with headers if no glycine residues pass the filters.
+- Phase 2: generate an empty plot with the correct axes if no residues pass the filters, unless the user disables plot generation.
 - Return a non-zero exit code for invalid arguments or complete failure to read all inputs.
 
 ## Proposed Folder Structure
@@ -289,10 +289,11 @@ GlyPhiPsi/
 9. Skips glycine adjacent to a chain break.
 10. Skips non-standard glycine-like residue names such as `DGL`, `GLX`, or modified residues unless explicitly mapped later.
 11. Skips glycine when alternate conformations cannot be resolved deterministically.
-12. Selects the expected alternate conformation when the configured policy can resolve it deterministically.
-13. Does not calculate across chains.
-14. Handles insertion codes without merging distinct residues.
-15. Handles multiple input files and preserves source file identity.
+12. Phase 1: skips glycine when required atoms have multiple alternate conformations.
+13. Phase 1.5 or Phase 2: selects the expected alternate conformation when a deterministic highest-occupancy policy is implemented.
+14. Does not calculate across chains.
+15. Handles insertion codes without merging distinct residues.
+16. Handles multiple input files and preserves source file identity.
 
 ### CLI Outputs
 
