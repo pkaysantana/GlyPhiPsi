@@ -20,7 +20,7 @@ This means glycine can occupy regions of phi/psi conformational space that are l
   - psi = N(i), CA(i), C(i), N(i+1)
 - Skips residues where phi/psi cannot be calculated deterministically.
 - Writes a clean CSV output.
-- Generates a glycine-only Ramachandran scatter plot.
+- Generates glycine-only or glycine-vs-general Ramachandran scatter plots.
 - Handles empty outputs gracefully.
 - Includes automated tests for geometry, parsing, filtering, CLI behaviour, and plotting.
 
@@ -71,7 +71,7 @@ uv run glyphipsi data/examples/3IWX.pdb \
 
 ## CSV Output
 
-The output CSV contains one row per accepted glycine residue.
+The output CSV contains one row per accepted residue selected by `--residue-mode`.
 
 Required columns include:
 
