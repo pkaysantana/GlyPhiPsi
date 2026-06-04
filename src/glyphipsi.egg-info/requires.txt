@@ -1,4 +1,0 @@
-biopython>=1.83
-
-[dev]
-pytest>=8

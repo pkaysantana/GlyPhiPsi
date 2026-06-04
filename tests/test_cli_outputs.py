@@ -31,6 +31,20 @@ def test_cli_writes_required_csv_columns_and_one_row(tmp_path):
     assert float(rows[0]["psi_deg"]) == pytest.approx(float(rows[0]["psi_deg"]))
 
 
+def test_cli_handles_multiple_inputs_and_preserves_source_file(tmp_path):
+    first_path = write_pdb(tmp_path / "first.pdb", base_atoms())
+    second_path = write_pdb(tmp_path / "second.pdb", base_atoms())
+    out_path = tmp_path / "multi.csv"
+
+    exit_code = main([str(first_path), str(second_path), "--out", str(out_path)])
+
+    assert exit_code == 0
+    with out_path.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+
+    assert [row["source_file"] for row in rows] == [str(first_path), str(second_path)]
+
+
 def test_cli_writes_empty_csv_with_header_when_no_rows_pass(tmp_path):
     atoms = [atom for atom in base_atoms() if atom["resname"] != "GLY"]
     pdb_path = write_pdb(tmp_path / "no_gly.pdb", atoms)
