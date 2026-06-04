@@ -1,33 +1,115 @@
 # GlyPhiPsi
 
-Python project for extracting glycine phi/psi backbone dihedral angles from local PDB and mmCIF files.
+GlyPhiPsi is a Python command-line tool for glycine-specific Ramachandran analysis.
 
-See [PROJECT_SPEC.md](PROJECT_SPEC.md) for the initial project specification.
+It parses local PDB or mmCIF protein structure files, extracts backbone phi/psi dihedral angles for standard glycine residues, writes a clean CSV table, and can generate a glycine-specific Ramachandran scatter plot.
 
-## Scope
+## Why Glycine?
 
-GlyPhiPsi reads local `.pdb`, `.ent`, `.cif`, and `.mmcif` protein structure files, filters for standard `GLY` residues, calculates backbone phi and psi angles, writes a CSV table, and can optionally save a Phase 2 scatter plot.
+Most amino acids have side chains that restrict the backbone conformations they can adopt. Glycine is unusual because its side chain is only a hydrogen atom, making it much less sterically restricted than other residues.
 
-The dihedral definitions are:
+This means glycine can occupy regions of phi/psi conformational space that are less accessible to most other amino acids. GlyPhiPsi focuses on extracting and visualising those glycine-specific backbone angles.
 
-- `phi = C(i-1), N(i), CA(i), C(i)`
-- `psi = N(i), CA(i), C(i), N(i+1)`
+## Current Features
 
-Angles are reported in degrees normalized to `-180` to `+180`.
+- Parses local `.pdb`, `.ent`, `.cif`, and `.mmcif` files.
+- Identifies standard `GLY` residues.
+- Calculates backbone:
+  - phi = C(i-1), N(i), CA(i), C(i)
+  - psi = N(i), CA(i), C(i), N(i+1)
+- Skips residues where phi/psi cannot be calculated deterministically.
+- Writes a clean CSV output.
+- Generates a glycine-only Ramachandran scatter plot.
+- Handles empty outputs gracefully.
+- Includes automated tests for geometry, parsing, filtering, CLI behaviour, and plotting.
 
-## Usage
+## Non-Goals
+
+GlyPhiPsi does not currently:
+
+- classify residues as favoured, allowed, or outliers;
+- perform full Ramachandran validation;
+- infer missing atoms or missing residues;
+- repair malformed structures;
+- generate density maps or contour maps;
+- assess global protein structure quality;
+- automatically download structures from the PDB.
+
+The current output is coordinate-derived geometry only.
+
+## Installation
 
 ```bash
-glyphipsi structure.pdb structure.cif --out results/gly_phi_psi.csv
-glyphipsi structure.pdb --out results/gly_phi_psi.csv --plot results/gly_ramachandran.png
+uv sync --extra dev
 ```
 
-## Plotting
+## Example Usage
 
-When `--plot` is supplied, GlyPhiPsi saves a scatter plot with `phi_deg` on the x-axis and `psi_deg` on the y-axis. Both axes span `-180` to `+180` degrees and are labeled `phi (degrees)` and `psi (degrees)`.
+Extract glycine phi/psi angles to CSV:
 
-## Limitations
+```bash
+uv run glyphipsi data/examples/3IWX.pdb --out results/gly_phi_psi.csv
+```
 
-GlyPhiPsi intentionally does not implement Ramachandran region classification, density maps, contour maps, favored/allowed/outlier labels, or biological interpretation.
+Generate a glycine-specific Ramachandran plot:
 
-Residues are skipped when required atoms are missing, the glycine is first or last in a chain, neighbouring residues are non-standard, a simple C-N continuity check detects a chain break, or required atoms have unresolved alternate conformations. Multiple models use the first model only.
+```bash
+uv run glyphipsi data/examples/3IWX.pdb \
+  --out results/gly_phi_psi.csv \
+  --plot results/gly_ramachandran.png
+```
+
+## CSV Output
+
+The output CSV contains one row per accepted glycine residue.
+
+Required columns include:
+
+- `source_file`
+- `model_id`
+- `chain_id`
+- `residue_name`
+- `residue_number`
+- `insertion_code`
+- `phi_deg`
+- `psi_deg`
+
+Example:
+
+```csv
+source_file,model_id,chain_id,residue_name,residue_number,insertion_code,phi_deg,psi_deg
+example.cif,1,A,GLY,42,,-76.214,148.903
+```
+
+## Scientific Notes
+
+Phi and psi are backbone dihedral angles.
+
+For residue `i`:
+
+- phi uses atoms C(i-1), N(i), CA(i), C(i)
+- psi uses atoms N(i), CA(i), C(i), N(i+1)
+
+The first residue in a chain cannot have phi calculated, and the last residue in a chain cannot have psi calculated. GlyPhiPsi skips residues where required atoms or neighbours are missing.
+
+## Example Result
+
+A first glycine-specific Ramachandran plot from structure `3IWX` shows glycine residues occupying multiple phi/psi regions, including positive-phi conformational space.
+
+This is consistent with glycine's reduced steric restriction, but a single structure is too small to define general glycine conformational preferences.
+
+## Development
+
+Run tests:
+
+```bash
+uv run --extra dev python -m pytest
+```
+
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md).
+
+## License
+
+Apache-2.0.
