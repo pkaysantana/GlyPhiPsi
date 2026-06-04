@@ -1,6 +1,7 @@
 import csv
 from pathlib import Path
 
+from matplotlib import image as mpimg
 import pytest
 
 from glyphipsi.cli import main
@@ -43,6 +44,45 @@ def test_cli_handles_multiple_inputs_and_preserves_source_file(tmp_path):
         rows = list(csv.DictReader(handle))
 
     assert [row["source_file"] for row in rows] == [str(first_path), str(second_path)]
+
+
+def test_cli_writes_plot_when_plot_supplied(tmp_path):
+    pdb_path = write_pdb(tmp_path / "input.pdb", base_atoms())
+    out_path = tmp_path / "gly_phi_psi.csv"
+    plot_path = tmp_path / "plots" / "gly_ramachandran.png"
+
+    exit_code = main([str(pdb_path), "--out", str(out_path), "--plot", str(plot_path)])
+
+    assert exit_code == 0
+    assert plot_path.is_file()
+    assert plot_path.stat().st_size > 0
+    assert mpimg.imread(plot_path).size > 0
+
+
+def test_cli_writes_valid_empty_plot_when_no_rows_pass(tmp_path):
+    atoms = [atom for atom in base_atoms() if atom["resname"] != "GLY"]
+    pdb_path = write_pdb(tmp_path / "no_gly.pdb", atoms)
+    out_path = tmp_path / "empty.csv"
+    plot_path = tmp_path / "empty.png"
+
+    exit_code = main([str(pdb_path), "--out", str(out_path), "--plot", str(plot_path)])
+
+    assert exit_code == 0
+    assert plot_path.is_file()
+    assert plot_path.stat().st_size > 0
+    assert mpimg.imread(plot_path).size > 0
+
+
+def test_plotting_does_not_change_csv_output(tmp_path):
+    pdb_path = write_pdb(tmp_path / "input.pdb", base_atoms())
+    csv_only_path = tmp_path / "csv_only.csv"
+    csv_with_plot_path = tmp_path / "csv_with_plot.csv"
+    plot_path = tmp_path / "plot.png"
+
+    assert main([str(pdb_path), "--out", str(csv_only_path)]) == 0
+    assert main([str(pdb_path), "--out", str(csv_with_plot_path), "--plot", str(plot_path)]) == 0
+
+    assert csv_with_plot_path.read_text(encoding="utf-8") == csv_only_path.read_text(encoding="utf-8")
 
 
 def test_cli_writes_empty_csv_with_header_when_no_rows_pass(tmp_path):

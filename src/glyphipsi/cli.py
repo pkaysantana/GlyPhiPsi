@@ -1,4 +1,4 @@
-"""Command-line interface for Phase 1 CSV extraction."""
+"""Command-line interface for CSV extraction and optional Phase 2 plotting."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from .io import StructureParseError, is_supported_structure_path, parse_structure
+from .plotting import plot_phi_psi
 from .residues import CSV_COLUMNS, GlyPhiPsiRow, extract_gly_phi_psi
 
 
@@ -20,6 +21,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("inputs", nargs="+", help="Local .pdb, .ent, .cif, or .mmcif files. Globs are accepted.")
     parser.add_argument("--out", required=True, help="Output CSV path.")
+    parser.add_argument("--plot", help="Optional PNG path for a glycine phi/psi scatter plot.")
     parser.add_argument(
         "--model-policy",
         choices=["first"],
@@ -95,6 +97,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     _write_csv(Path(args.out), all_rows)
+    if args.plot:
+        plot_phi_psi(all_rows, Path(args.plot))
     return 0
 
 
