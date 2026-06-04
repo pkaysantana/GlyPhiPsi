@@ -60,6 +60,15 @@ glyphipsi structures/*.cif \
   --break-max-c-n-distance 1.8
 ```
 
+Optional v0.4 batch atlas command:
+
+```bash
+glyphipsi data/atlas/*.cif \
+  --out results/atlas/gly_phi_psi_atlas.csv \
+  --plot results/atlas/gly_atlas.png \
+  --summary results/atlas/summary.csv
+```
+
 ### Input Assumptions
 
 - Files contain atomic coordinates for protein structures.
@@ -124,6 +133,22 @@ Optional plot behavior:
 - `.svg` and `.pdf` export.
 - Point alpha for dense datasets.
 - Color by source file or chain, only when requested.
+
+### v0.4 Summary Output
+
+When `--summary` is supplied, the command writes one row per input source file.
+
+Required summary columns:
+
+| Column | Description |
+| --- | --- |
+| `source_file` | Input file path. |
+| `parsed_successfully` | `true` when the source file parsed successfully, otherwise `false`. |
+| `accepted_residue_count` | Number of accepted rows contributed to the main CSV. |
+| `skipped_or_error_count` | Blank for successful files because per-residue skipped counts are not tracked yet; `1` for file-level failures. |
+| `error_message` | Empty for successful files; parser or file-level error message for failures. |
+
+Batch runs continue past file-level errors unless `--strict` is supplied.
 
 ## Scientific Assumptions
 

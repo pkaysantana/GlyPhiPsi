@@ -6,12 +6,29 @@ import argparse
 import csv
 import glob
 import sys
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from .io import StructureParseError, is_supported_structure_path, parse_structure
 from .plotting import plot_phi_psi
 from .residues import CSV_COLUMNS, GlyPhiPsiRow, extract_gly_phi_psi
+
+SUMMARY_COLUMNS = [
+    "source_file",
+    "parsed_successfully",
+    "accepted_residue_count",
+    "skipped_or_error_count",
+    "error_message",
+]
+
+
+@dataclass(frozen=True)
+class SourceSummaryRow:
+    source_file: str
+    parsed_successfully: bool
+    accepted_residue_count: int
+    skipped_or_error_count: str
+    error_message: str
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -22,6 +39,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("inputs", nargs="+", help="Local .pdb, .ent, .cif, or .mmcif files. Globs are accepted.")
     parser.add_argument("--out", required=True, help="Output CSV path.")
     parser.add_argument("--plot", help="Optional PNG path for a glycine phi/psi scatter plot.")
+    parser.add_argument("--summary", help="Optional per-source-file processing summary CSV path.")
     parser.add_argument(
         "--model-policy",
         choices=["first"],
@@ -59,44 +77,75 @@ def main(argv: list[str] | None = None) -> int:
     if not input_paths:
         parser.error("No input files matched.")
 
-    missing_paths = [path for path in input_paths if not path.is_file()]
-    if missing_paths:
-        parser.error("Input file does not exist: " + ", ".join(str(path) for path in missing_paths))
-
-    unsupported_paths = [path for path in input_paths if not is_supported_structure_path(path)]
-    if unsupported_paths:
-        parser.error("Unsupported input file extension: " + ", ".join(str(path) for path in unsupported_paths))
+    if len(input_paths) == 1:
+        if not input_paths[0].is_file():
+            parser.error(f"Input file does not exist: {input_paths[0]}")
+        if not is_supported_structure_path(input_paths[0]):
+            parser.error(f"Unsupported input file extension: {input_paths[0]}")
 
     all_rows: list[GlyPhiPsiRow] = []
     parsed_files = 0
-    parse_errors: list[str] = []
+    file_errors = 0
+    summary_rows: list[SourceSummaryRow] = []
 
     for path in input_paths:
+        if not path.is_file():
+            file_errors += 1
+            message = f"Input file does not exist: {path}"
+            summary_rows.append(_error_summary(path, message))
+            print(f"warning: {message}", file=sys.stderr)
+            if args.strict:
+                _write_summary_if_requested(args.summary, summary_rows)
+                return 1
+            continue
+
+        if not is_supported_structure_path(path):
+            file_errors += 1
+            message = f"Unsupported input file extension: {path}"
+            summary_rows.append(_error_summary(path, message))
+            print(f"warning: {message}", file=sys.stderr)
+            if args.strict:
+                _write_summary_if_requested(args.summary, summary_rows)
+                return 1
+            continue
+
         try:
             structure = parse_structure(path)
         except StructureParseError as exc:
             message = str(exc)
-            parse_errors.append(message)
+            file_errors += 1
+            summary_rows.append(_error_summary(path, message))
             print(f"warning: {message}", file=sys.stderr)
             if args.strict:
+                _write_summary_if_requested(args.summary, summary_rows)
                 return 1
             continue
 
         parsed_files += 1
-        all_rows.extend(
-            extract_gly_phi_psi(
-                structure,
-                str(path),
-                model_policy=args.model_policy,
-                altloc_policy=args.altloc_policy,
-                break_max_c_n_distance=args.break_max_c_n_distance,
+        file_rows = extract_gly_phi_psi(
+            structure,
+            str(path),
+            model_policy=args.model_policy,
+            altloc_policy=args.altloc_policy,
+            break_max_c_n_distance=args.break_max_c_n_distance,
+        )
+        all_rows.extend(file_rows)
+        summary_rows.append(
+            SourceSummaryRow(
+                source_file=str(path),
+                parsed_successfully=True,
+                accepted_residue_count=len(file_rows),
+                skipped_or_error_count="",
+                error_message="",
             )
         )
 
-    if parsed_files == 0 and parse_errors:
+    if parsed_files == 0 and file_errors:
+        _write_summary_if_requested(args.summary, summary_rows)
         return 1
 
     _write_csv(Path(args.out), all_rows)
+    _write_summary_if_requested(args.summary, summary_rows)
     if args.plot:
         plot_phi_psi(all_rows, Path(args.plot))
     return 0
@@ -105,7 +154,7 @@ def main(argv: list[str] | None = None) -> int:
 def _expand_inputs(inputs: list[str]) -> list[Path]:
     paths: list[Path] = []
     for raw_input in inputs:
-        matches = glob.glob(raw_input) if _contains_glob(raw_input) else []
+        matches = glob.glob(raw_input, recursive=True) if _contains_glob(raw_input) else []
         if matches:
             paths.extend(Path(match) for match in sorted(matches))
         else:
@@ -129,6 +178,34 @@ def _write_csv(path: Path, rows: list[GlyPhiPsiRow]) -> None:
             data["phi_deg"] = f"{row.phi_deg:.6f}"
             data["psi_deg"] = f"{row.psi_deg:.6f}"
             writer.writerow(data)
+
+
+def _write_summary_if_requested(path: str | None, rows: list[SourceSummaryRow]) -> None:
+    if path:
+        _write_summary_csv(Path(path), rows)
+
+
+def _write_summary_csv(path: Path, rows: list[SourceSummaryRow]) -> None:
+    if path.parent != Path("."):
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=SUMMARY_COLUMNS)
+        writer.writeheader()
+        for row in rows:
+            data = asdict(row)
+            data["parsed_successfully"] = "true" if row.parsed_successfully else "false"
+            writer.writerow(data)
+
+
+def _error_summary(path: Path, message: str) -> SourceSummaryRow:
+    return SourceSummaryRow(
+        source_file=str(path),
+        parsed_successfully=False,
+        accepted_residue_count=0,
+        skipped_or_error_count="1",
+        error_message=message,
+    )
 
 
 if __name__ == "__main__":
