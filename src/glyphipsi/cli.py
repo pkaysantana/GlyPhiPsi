@@ -5,7 +5,9 @@ from __future__ import annotations
 import argparse
 import csv
 import glob
+import statistics
 import sys
+from collections import Counter
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -19,6 +21,24 @@ SUMMARY_COLUMNS = [
     "accepted_residue_count",
     "skipped_or_error_count",
     "error_message",
+]
+
+STATS_COLUMNS = [
+    "total_input_files",
+    "files_parsed_successfully",
+    "files_failed",
+    "total_accepted_residues",
+    "accepted_glycine_residues",
+    "unique_source_files_represented",
+    "unique_chains_represented",
+    "phi_min",
+    "phi_max",
+    "psi_min",
+    "psi_max",
+    "mean_phi",
+    "mean_psi",
+    "median_phi",
+    "median_psi",
 ]
 
 
@@ -40,6 +60,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--out", required=True, help="Output CSV path.")
     parser.add_argument("--plot", help="Optional PNG path for a glycine phi/psi scatter plot.")
     parser.add_argument("--summary", help="Optional per-source-file processing summary CSV path.")
+    parser.add_argument("--stats", help="Optional aggregate dataset statistics output path, .csv or text.")
     parser.add_argument(
         "--model-policy",
         choices=["first"],
@@ -96,6 +117,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"warning: {message}", file=sys.stderr)
             if args.strict:
                 _write_summary_if_requested(args.summary, summary_rows)
+                _write_stats_if_requested(args.stats, input_paths, summary_rows, all_rows)
                 return 1
             continue
 
@@ -106,6 +128,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"warning: {message}", file=sys.stderr)
             if args.strict:
                 _write_summary_if_requested(args.summary, summary_rows)
+                _write_stats_if_requested(args.stats, input_paths, summary_rows, all_rows)
                 return 1
             continue
 
@@ -118,6 +141,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"warning: {message}", file=sys.stderr)
             if args.strict:
                 _write_summary_if_requested(args.summary, summary_rows)
+                _write_stats_if_requested(args.stats, input_paths, summary_rows, all_rows)
                 return 1
             continue
 
@@ -142,10 +166,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if parsed_files == 0 and file_errors:
         _write_summary_if_requested(args.summary, summary_rows)
+        _write_stats_if_requested(args.stats, input_paths, summary_rows, all_rows)
         return 1
 
     _write_csv(Path(args.out), all_rows)
     _write_summary_if_requested(args.summary, summary_rows)
+    _write_stats_if_requested(args.stats, input_paths, summary_rows, all_rows)
     if args.plot:
         plot_phi_psi(all_rows, Path(args.plot))
     return 0
@@ -196,6 +222,77 @@ def _write_summary_csv(path: Path, rows: list[SourceSummaryRow]) -> None:
             data = asdict(row)
             data["parsed_successfully"] = "true" if row.parsed_successfully else "false"
             writer.writerow(data)
+
+
+def _write_stats_if_requested(
+    path: str | None,
+    input_paths: list[Path],
+    summary_rows: list[SourceSummaryRow],
+    rows: list[GlyPhiPsiRow],
+) -> None:
+    if path:
+        _write_stats(Path(path), _build_stats(input_paths, summary_rows, rows))
+
+
+def _build_stats(
+    input_paths: list[Path],
+    summary_rows: list[SourceSummaryRow],
+    rows: list[GlyPhiPsiRow],
+) -> dict[str, str]:
+    phi_values = [row.phi_deg for row in rows]
+    psi_values = [row.psi_deg for row in rows]
+    stats = {
+        "total_input_files": str(len(input_paths)),
+        "files_parsed_successfully": str(sum(1 for row in summary_rows if row.parsed_successfully)),
+        "files_failed": str(sum(1 for row in summary_rows if not row.parsed_successfully)),
+        "total_accepted_residues": str(len(rows)),
+        "accepted_glycine_residues": str(sum(1 for row in rows if row.residue_name == "GLY")),
+        "unique_source_files_represented": str(len({row.source_file for row in rows})),
+        "unique_chains_represented": str(len({(row.source_file, row.model_id, row.chain_id) for row in rows})),
+        "phi_min": _format_float(min(phi_values)) if phi_values else "",
+        "phi_max": _format_float(max(phi_values)) if phi_values else "",
+        "psi_min": _format_float(min(psi_values)) if psi_values else "",
+        "psi_max": _format_float(max(psi_values)) if psi_values else "",
+        "mean_phi": _format_float(statistics.fmean(phi_values)) if phi_values else "",
+        "mean_psi": _format_float(statistics.fmean(psi_values)) if psi_values else "",
+        "median_phi": _format_float(statistics.median(phi_values)) if phi_values else "",
+        "median_psi": _format_float(statistics.median(psi_values)) if psi_values else "",
+    }
+
+    residue_groups = Counter(
+        group
+        for row in rows
+        for group in [getattr(row, "residue_group", None)]
+        if group
+    )
+    for residue_group in sorted(residue_groups):
+        stats[f"residue_group_{residue_group}_count"] = str(residue_groups[residue_group])
+
+    return stats
+
+
+def _write_stats(path: Path, stats: dict[str, str]) -> None:
+    if path.parent != Path("."):
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+    if path.suffix.lower() == ".csv":
+        fieldnames = STATS_COLUMNS + [key for key in stats if key not in STATS_COLUMNS]
+        with path.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerow(stats)
+        return
+
+    with path.open("w", encoding="utf-8") as handle:
+        for key in STATS_COLUMNS:
+            handle.write(f"{key}: {stats.get(key, '')}\n")
+        for key in stats:
+            if key not in STATS_COLUMNS:
+                handle.write(f"{key}: {stats[key]}\n")
+
+
+def _format_float(value: float) -> str:
+    return f"{value:.6f}"
 
 
 def _error_summary(path: Path, message: str) -> SourceSummaryRow:
