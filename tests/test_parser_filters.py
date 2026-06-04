@@ -1,7 +1,10 @@
+import math
 from pathlib import Path
 
+from Bio.PDB.vectors import Vector, calc_dihedral
 import pytest
 
+from glyphipsi.angles import normalize_degrees
 from glyphipsi.io import parse_structure
 from glyphipsi.residues import extract_gly_phi_psi
 
@@ -15,6 +18,30 @@ def test_includes_complete_standard_glycine(tmp_path):
     assert rows[0].residue_name == "GLY"
     assert rows[0].chain_id == "A"
     assert rows[0].residue_number == "2"
+
+
+def test_extracted_phi_psi_match_biopython_conventional_atom_order(tmp_path):
+    pdb_path = write_pdb(tmp_path / "complete.pdb", base_atoms())
+    structure = parse_structure(pdb_path)
+    rows = extract_gly_phi_psi(structure, str(pdb_path))
+    residues = list(next(next(structure.get_models()).get_chains()).get_residues())
+
+    expected_phi = biopython_dihedral(
+        parsed_atom_coord(residues[0], "C"),
+        parsed_atom_coord(residues[1], "N"),
+        parsed_atom_coord(residues[1], "CA"),
+        parsed_atom_coord(residues[1], "C"),
+    )
+    expected_psi = biopython_dihedral(
+        parsed_atom_coord(residues[1], "N"),
+        parsed_atom_coord(residues[1], "CA"),
+        parsed_atom_coord(residues[1], "C"),
+        parsed_atom_coord(residues[2], "N"),
+    )
+
+    assert len(rows) == 1
+    assert rows[0].phi_deg == pytest.approx(expected_phi, abs=1e-12)
+    assert rows[0].psi_deg == pytest.approx(expected_psi, abs=1e-12)
 
 
 @pytest.mark.parametrize("atom_name", ["N", "CA", "C"])
@@ -130,6 +157,15 @@ def test_parses_minimal_mmcif(tmp_path):
 
 def extract_rows(path: Path):
     return extract_gly_phi_psi(parse_structure(path), str(path))
+
+
+def biopython_dihedral(*points):
+    return normalize_degrees(math.degrees(calc_dihedral(*(Vector(*point) for point in points))))
+
+
+def parsed_atom_coord(residue, atom_name):
+    coord = residue[atom_name].get_coord()
+    return (float(coord[0]), float(coord[1]), float(coord[2]))
 
 
 def base_atoms():

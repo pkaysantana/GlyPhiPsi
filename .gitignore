@@ -5,3 +5,6 @@ __pycache__/
 .uv-cache/
 .uv-python/
 *.egg-info/
+
+desktop.ini
+results/
